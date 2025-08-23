@@ -1,6 +1,16 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AR Pneumatics Simulation
 
-## Getting Started
+An interactive pneumatic system simulation built with Next.js, React Three Fiber, and WebXR for Augmented Reality experiences.
+
+## 🥽 Features
+
+- **AR Experience**: Immersive augmented reality pneumatic system visualization
+- **Touch Interactions**: Tap to interact with valves, buttons, and components
+- **Real-time Physics**: Live pressure simulation and air flow visualization
+- **Mobile Optimized**: Designed for mobile AR experiences
+- **Educational Focus**: Learn pneumatic principles through hands-on interaction
+
+## 🚀 Getting Started
 
 First, run the development server:
 
@@ -14,22 +24,56 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [https://localhost:3000](https://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📱 Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Desktop Version**: Visit `/desktop` for traditional 3D interaction
+2. **AR Experience**: Visit `/ar` and tap "Launch AR Experience"
+3. Point your device at a flat surface and tap to place components
+4. Interact with pneumatic components by tapping them
+5. Watch real-time pressure changes and air flow
 
-## Learn More
+## 🔧 AR Components
 
-To learn more about Next.js, take a look at the following resources:
+- **Air Compressor**: Generates pressurized air
+- **Control Valves**: Button-operated valves to control air flow
+- **Pneumatic Cylinders**: Linear actuators that extend/retract
+- **Tubes**: Connect components to create pneumatic circuits
+- **Measurement Tool**: Measure distances in AR space
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📋 Requirements
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- HTTPS connection (required for WebXR)
+- Modern mobile browser with AR support (Chrome/Edge recommended)
+- Device with camera for AR tracking
+- Flat surface for AR placement
 
-## Deploy on Vercel
+## 🛠 Technology Stack
+
+- **Next.js 15**: React framework with App Router
+- **React Three Fiber**: 3D rendering in React
+- **@react-three/xr**: WebXR implementation for AR
+- **@react-three/drei**: 3D utilities and helpers
+- **TypeScript**: Type-safe development
+
+## 🌐 Browser Support
+
+- ✅ **Chrome/Edge**: Full AR support
+- ✅ **Firefox**: Limited AR support
+- ✅ **Safari**: WebXR polyfill required
+- ✅ **Mobile Chrome**: Native AR support
+
+## 📚 Learn More
+
+To learn more about the technologies used:
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
+- [WebXR Device API](https://www.w3.org/TR/webxr/)
+- [Three.js](https://threejs.org/docs/)
+
+## 🚀 Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
