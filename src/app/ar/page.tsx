@@ -295,22 +295,6 @@ export default function ARPneumaticsPage() {
             <ClientOnly>
                 {store && (
                     <>
-                        <ARButton
-                            store={store}
-                            style={{
-                                position: 'absolute',
-                                top: '20px',
-                                left: '20px',
-                                zIndex: 1000,
-                                padding: '12px 24px',
-                                fontSize: '16px',
-                                backgroundColor: '#007AFF',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                cursor: 'pointer'
-                            }}
-                        />
                         <Canvas
                             shadows
                             camera={{ position: [0, 2, 5], fov: 50 }}
