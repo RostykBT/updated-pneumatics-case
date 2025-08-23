@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { XR, ARButton, createXRStore } from "@react-three/xr";
+import { XR, createXRStore } from "@react-three/xr";
 import { Environment, OrbitControls, Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useXR } from "@react-three/xr";
@@ -295,7 +295,7 @@ export default function ARPneumaticsPage() {
             <ClientOnly>
                 {store && (
                     <>
-                        <ARButton 
+                        <ARButton
                             store={store}
                             style={{
                                 position: 'absolute',
@@ -324,12 +324,12 @@ export default function ARPneumaticsPage() {
                     </>
                 )}
                 {!store && (
-                    <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'center', 
-                        alignItems: 'center', 
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
                         height: '100vh',
-                        fontSize: '18px' 
+                        fontSize: '18px'
                     }}>
                         Loading AR Experience...
                     </div>
