@@ -11,6 +11,12 @@ import {
     PneumaticComponentState,
 } from "@/types/PneumaticTypes";
 
+// Helper to check if event is from XR (similar to legacy isXIntersection)
+const isXREvent = (e: any) => {
+    // In the new XR system, we can check for XR-specific properties
+    return e.nativeEvent && (e.nativeEvent.inputSource || e.nativeEvent.hand);
+};
+
 const CableTip = React.forwardRef<THREE.Mesh, {
     downState: React.MutableRefObject<{
         pointerId: number;
@@ -37,19 +43,49 @@ const CableTip = React.forwardRef<THREE.Mesh, {
                     kind: "snap-tag",
                 }}
                 onPointerDown={(e) => {
+                    // Skip if basic conditions aren't met
                     if (
-                        ref &&
-                        typeof ref === 'object' &&
-                        'current' in ref &&
-                        ref.current != null &&
-                        downState.current == null
+                        !ref ||
+                        typeof ref !== 'object' ||
+                        !('current' in ref) ||
+                        !ref.current ||
+                        downState.current !== null
                     ) {
+                        return;
+                    }
+
+                    // Additional check for valid point data
+                    if (!e.point || typeof e.point !== 'object') {
+                        return;
+                    }
+
+                    try {
                         e.stopPropagation();
                         (e.target as any).setPointerCapture(e.pointerId);
+
+                        // Create a safe Vector3 from the event point
+                        let eventPoint: THREE.Vector3;
+                        if (e.point instanceof THREE.Vector3) {
+                            eventPoint = e.point.clone();
+                        } else if (e.point && typeof e.point === 'object') {
+                            const point = e.point as any;
+                            eventPoint = new THREE.Vector3(
+                                Number(point.x) || 0,
+                                Number(point.y) || 0,
+                                Number(point.z) || 0
+                            );
+                        } else {
+                            console.warn('Invalid point data in pointer down event');
+                            return;
+                        }
+
                         downState.current = {
                             pointerId: e.pointerId,
-                            pointToObjectOffset: ref.current.position.clone().sub(e.point),
+                            pointToObjectOffset: ref.current.position.clone().sub(eventPoint),
                         };
+                    } catch (error) {
+                        console.warn('Error in pointer down:', error);
+                        return;
                     }
                 }}
                 onPointerUp={(e) => {
@@ -102,50 +138,82 @@ const CableTip = React.forwardRef<THREE.Mesh, {
                         }
                     }
 
-                    // Snap to the closest object
-                    if (closestObject &&
-                        ref &&
-                        typeof ref === 'object' &&
-                        'current' in ref &&
-                        ref.current) {
-                        const worldPosition = new THREE.Vector3();
-                        closestObject.getWorldPosition(worldPosition);
-
-                        // convert world position to local position
-                        const parent = ref.current.parent;
-                        if (parent) {
-                            const localPosition = parent.worldToLocal(worldPosition.clone());
-                            ref.current.position.copy(localPosition);
-                        }
-
-                        console.log("snapped", closestObject.userData.id);
-                        onPut(closestObject.userData.id);
+                    // Snap to the closest object (Legacy style - direct attachment)
+                    if (closestObject) {
+                        console.log("Attaching to", closestObject);
                         attachmentRef.current = closestObject;
+                        onPut(closestObject.userData.id || null);
                     } else {
-                        onPut(null);
+                        console.log("Not attaching to anything");
                         attachmentRef.current = null;
+                        onPut(null);
                     }
                 }}
                 onPointerMove={(e) => {
-                    if (downState.current?.pointerId != e.pointerId) {
+                    // Skip if basic conditions aren't met
+                    if (
+                        !ref ||
+                        typeof ref !== 'object' ||
+                        !('current' in ref) ||
+                        !ref.current ||
+                        !downState.current ||
+                        e.pointerId !== downState.current.pointerId
+                    ) {
                         return;
                     }
-                    if (!(ref &&
-                        typeof ref === 'object' &&
-                        'current' in ref &&
-                        ref.current != null) ||
-                        downState.current == null) {
+
+                    // Additional check for valid point data
+                    if (!e.point || typeof e.point !== 'object') {
                         return;
                     }
-                    ref.current.position.copy(
-                        e.point.clone().add(downState.current.pointToObjectOffset),
-                    );
+
+                    try {
+                        // Legacy style movement - direct position copy with offset
+                        // Create a safe Vector3 from the event point
+                        let eventPoint: THREE.Vector3;
+                        if (e.point instanceof THREE.Vector3) {
+                            eventPoint = e.point.clone();
+                        } else if (e.point && typeof e.point === 'object') {
+                            const point = e.point as any;
+                            eventPoint = new THREE.Vector3(
+                                Number(point.x) || 0,
+                                Number(point.y) || 0,
+                                Number(point.z) || 0
+                            );
+                        } else {
+                            console.warn('Invalid point data in pointer move event');
+                            return;
+                        }
+
+                        // Ensure we have valid offset
+                        if (!downState.current.pointToObjectOffset ||
+                            !(downState.current.pointToObjectOffset instanceof THREE.Vector3)) {
+                            console.warn('Invalid pointToObjectOffset');
+                            return;
+                        }
+
+                        ref.current.position
+                            .copy(downState.current.pointToObjectOffset)
+                            .add(eventPoint);
+                    } catch (error) {
+                        console.warn('Error in pointer move:', error);
+                        return;
+                    }
                 }}
-                position={position}
+                position={
+                    Array.isArray(position) && position.length >= 3
+                        ? [position[0] || 0, (position[1] || 0) + 1, (position[2] || 0) + 1]
+                        : [0, 1, 1]
+                }
             >
-                <mesh ref={ref}>
-                    <sphereGeometry args={[0.02]} />
-                    <meshStandardMaterial color="blue" />
+                {/* Legacy style cable tip - cylindrical blue connector */}
+                <mesh
+                    ref={ref}
+                    position={[0, 0.1, 0]}
+                    userData={{ kind: "snap-tag" }}
+                >
+                    <cylinderGeometry args={[0.04, 0.04, 0.15, 32]} />
+                    <meshStandardMaterial color="blue" transparent opacity={0.5} />
                 </mesh>
             </group>
         );
@@ -154,103 +222,195 @@ const CableTip = React.forwardRef<THREE.Mesh, {
 
 CableTip.displayName = "CableTip";
 
+// Legacy-style Tube component (matching ivar-pneumatics exactly)
 export function Tube({
+    downState,
+    position,
+    id,
+    simulationState,
+}: {
+    downState: React.MutableRefObject<{
+        pointerId: number;
+        pointToObjectOffset: THREE.Vector3;
+    } | null>;
+    position: [number, number, number];
+    id: string;
+    simulationState: PneumapicTubeState;
+}) {
+    const ref1 = useRef<THREE.Mesh>(null);
+    const ref2 = useRef<THREE.Mesh>(null);
+    const { scene } = useThree();
+
+    const ref1AttachedTo = useRef<THREE.Object3D | null>(null);
+    const ref2AttachedTo = useRef<THREE.Object3D | null>(null);
+
+    const v1 = new THREE.Vector3(0, 1, 0);
+    const v1Orientation = new THREE.Vector3(0, 2, 0);
+
+    const v2 = new THREE.Vector3(0, 1, 0);
+    const v2Orientation = new THREE.Vector3(0, 2, 0);
+
+    console.log("Rebuilding tube", id);
+
+    useFrame(() => {
+        ref1.current?.getWorldPosition(v1);
+        ref1.current?.getWorldDirection(v1Orientation);
+
+        ref2.current?.getWorldPosition(v2);
+        ref2.current?.getWorldDirection(v2Orientation);
+
+        // Legacy style attachment handling with world position/quaternion
+        if (ref1AttachedTo.current && ref1.current) {
+            const baseWorldPosition = new THREE.Vector3();
+            const baseWorldQuaternion = new THREE.Quaternion();
+
+            ref1AttachedTo.current.getWorldPosition(baseWorldPosition);
+            ref1AttachedTo.current.getWorldQuaternion(baseWorldQuaternion);
+
+            const baseWorldEuler = new THREE.Euler();
+            baseWorldEuler.setFromQuaternion(baseWorldQuaternion);
+
+            ref1.current.rotation.copy(baseWorldEuler);
+            ref1.current.updateMatrixWorld();
+
+            ref1.current.position
+                .copy(baseWorldPosition)
+                .add(new THREE.Vector3(0, 0, 0));
+        } else if (ref1.current) {
+            ref1.current.rotation.set(0, Math.PI / 6, 0);
+            ref1.current.updateMatrixWorld();
+        }
+
+        if (ref2AttachedTo.current && ref2.current) {
+            const baseWorldPosition = new THREE.Vector3();
+            const baseWorldQuaternion = new THREE.Quaternion();
+
+            ref2AttachedTo.current.getWorldPosition(baseWorldPosition);
+            ref2AttachedTo.current.getWorldQuaternion(baseWorldQuaternion);
+
+            const baseWorldEuler = new THREE.Euler();
+            baseWorldEuler.setFromQuaternion(baseWorldQuaternion);
+
+            ref2.current.rotation.copy(baseWorldEuler);
+
+            ref2.current.position
+                .copy(baseWorldPosition)
+                .add(new THREE.Vector3(0, 0, 0));
+
+            ref2.current.updateMatrixWorld();
+        } else if (ref2.current) {
+            ref2.current.rotation.set(0, Math.PI / 6, 0);
+            ref2.current.updateMatrixWorld();
+        }
+    });
+
+    return (
+        <group position={position}>
+            <CableTip
+                ref={ref1}
+                attachmentRef={ref1AttachedTo}
+                downState={downState}
+                position={position}
+                onPut={(id) => {
+                    simulationState.from = id || "atmosphere";
+                }}
+            />
+            <CableTip
+                ref={ref2}
+                attachmentRef={ref2AttachedTo}
+                downState={downState}
+                position={position}
+                onPut={(id) => {
+                    simulationState.to = id || "atmosphere";
+                }}
+            />
+
+            <Cable start={ref1} end={ref2} v1={v1} v2={v2} simulationState={simulationState} />
+        </group>
+    );
+}
+
+function Cable({
+    start,
+    end,
+    v1 = new THREE.Vector3(),
+    v2 = new THREE.Vector3(),
+    simulationState,
+}: {
+    start: React.RefObject<THREE.Mesh | null>;
+    end: React.RefObject<THREE.Mesh | null>;
+    v1?: THREE.Vector3;
+    v2?: THREE.Vector3;
+    simulationState: PneumapicTubeState | undefined;
+}) {
+    const [startPos, setStartPos] = React.useState(new THREE.Vector3());
+    const [endPos, setEndPos] = React.useState(new THREE.Vector3());
+    const [midPos, setMidPos] = React.useState(new THREE.Vector3());
+
+    useFrame(() => {
+        if (start.current && end.current) {
+            const tempV1 = new THREE.Vector3();
+            const tempV2 = new THREE.Vector3();
+
+            const newStartPos = start.current.getWorldPosition(tempV1);
+            const newEndPos = end.current.getWorldPosition(tempV2);
+
+            setStartPos(newStartPos.clone());
+            setEndPos(newEndPos.clone());
+
+            // Calculate midpoint with sag for legacy style
+            const newMidPos = new THREE.Vector3()
+                .addVectors(newStartPos, newEndPos)
+                .multiplyScalar(0.5)
+                .add(new THREE.Vector3(0, -0.3, 0));
+            setMidPos(newMidPos);
+        }
+    });
+
+    return (
+        <QuadraticBezierLine
+            start={startPos}
+            end={endPos}
+            mid={midPos}
+            lineWidth={3}
+            color={simulationState?.residualMass && simulationState.residualMass > 0.5 ? "#00ff00" : "#ff2060"}
+        />
+    );
+}
+
+// Modern wrapper component for compatibility with current app structure
+export function ModernTubeWrapper({
     state,
     onTubeUpdate,
 }: {
     state: PneumapicTubeState;
     onTubeUpdate: (tubeState: PneumapicTubeState) => void;
 }) {
-    const tip1Ref = useRef<THREE.Mesh>(null);
-    const tip2Ref = useRef<THREE.Mesh>(null);
-
-    const tip1DownState = useRef<
-        | {
-            pointerId: number;
-            pointToObjectOffset: THREE.Vector3;
-        }
-        | null
-    >(null);
-
-    const tip2DownState = useRef<
-        | {
-            pointerId: number;
-            pointToObjectOffset: THREE.Vector3;
-        }
-        | null
-    >(null);
-
-    const tip1AttachmentRef = useRef<THREE.Object3D | null>(null);
-    const tip2AttachmentRef = useRef<THREE.Object3D | null>(null);
+    const downState = useRef<{
+        pointerId: number;
+        pointToObjectOffset: THREE.Vector3;
+    } | null>(null);
 
     const [currentState, setCurrentState] = React.useState(state);
 
-    useFrame(() => {
-        // Update tube attachment positions based on snap-bases
-        if (tip1AttachmentRef.current && tip1Ref.current) {
-            const worldPosition = new THREE.Vector3();
-            tip1AttachmentRef.current.getWorldPosition(worldPosition);
+    React.useEffect(() => {
+        setCurrentState(state);
+    }, [state]);
 
-            const parent = tip1Ref.current.parent;
-            if (parent) {
-                const localPosition = parent.worldToLocal(worldPosition.clone());
-                tip1Ref.current.position.copy(localPosition);
-            }
-        }
+    const handleStateUpdate = React.useCallback(() => {
+        onTubeUpdate(currentState);
+    }, [currentState, onTubeUpdate]);
 
-        if (tip2AttachmentRef.current && tip2Ref.current) {
-            const worldPosition = new THREE.Vector3();
-            tip2AttachmentRef.current.getWorldPosition(worldPosition);
-
-            const parent = tip2Ref.current.parent;
-            if (parent) {
-                const localPosition = parent.worldToLocal(worldPosition.clone());
-                tip2Ref.current.position.copy(localPosition);
-            }
-        }
-    });
-
-    const tip1Position = tip1Ref.current?.position || new THREE.Vector3(-1, 0, 0);
-    const tip2Position = tip2Ref.current?.position || new THREE.Vector3(1, 0, 0);
-
-    const midpoint = new THREE.Vector3()
-        .addVectors(tip1Position, tip2Position)
-        .multiplyScalar(0.5)
-        .add(new THREE.Vector3(0, -0.3, 0));
+    React.useEffect(() => {
+        handleStateUpdate();
+    }, [currentState, handleStateUpdate]);
 
     return (
-        <group>
-            <CableTip
-                ref={tip1Ref}
-                downState={tip1DownState}
-                attachmentRef={tip1AttachmentRef}
-                position={[-1, 0, 0]}
-                onPut={(id) => {
-                    const newState = { ...currentState, from: id || "atmosphere" };
-                    setCurrentState(newState);
-                    onTubeUpdate(newState);
-                }}
-            />
-
-            <CableTip
-                ref={tip2Ref}
-                downState={tip2DownState}
-                attachmentRef={tip2AttachmentRef}
-                position={[1, 0, 0]}
-                onPut={(id) => {
-                    const newState = { ...currentState, to: id || "atmosphere" };
-                    setCurrentState(newState);
-                    onTubeUpdate(newState);
-                }}
-            />
-
-            <QuadraticBezierLine
-                start={tip1Position}
-                end={tip2Position}
-                mid={midpoint}
-                color={currentState.residualMass > 0.5 ? "green" : "gray"}
-                lineWidth={Math.max(2, currentState.residualMass * 5)}
-            />
-        </group>
+        <Tube
+            downState={downState}
+            position={[0, 0, 0]}
+            id={currentState.id}
+            simulationState={currentState}
+        />
     );
 }
