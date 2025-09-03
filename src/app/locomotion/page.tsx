@@ -1,16 +1,34 @@
 "use client"
-import { Environment, Grid } from "@react-three/drei"
+import { Environment, Grid, OrbitControls, Text, useGLTF } from "@react-three/drei"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, useXRInputSourceState, XR, XROrigin } from "@react-three/xr"
-import { useRef } from "react"
+import { useRef, Suspense } from "react"
 import { Group, Vector3 } from "three"
 
 const store = createXRStore()
 
+// GLTF Model Component
+function RuinsModel() {
+    const { scene } = useGLTF('https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/ruins/model.gltf')
+
+    return (
+        <primitive
+            object={scene}
+            scale={[1, 1, 1]}
+            position={[-210, 0, 10]}
+            castShadow
+            receiveShadow
+        />
+    )
+}
+
+// Preload the model
+useGLTF.preload('https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/ruins/model.gltf')
+
 export default function App() {
     return (
         <>
-            {/* <button onClick={() => store.enterVR()}>Enter VR</button> */}
+            <button onClick={() => store.enterVR()}>Enter VR</button>
             <Canvas>
                 <XR store={store}>
                     {/* <ambientLight /> */}
@@ -21,6 +39,11 @@ export default function App() {
                         <meshBasicMaterial color="red" />
                     </mesh>
                     <Grid args={[10, 10]} />
+
+                    <RuinsModel />
+                    {/* <OrbitControls /> */}
+
+
                 </XR>
             </Canvas>
         </>
@@ -91,7 +114,7 @@ function Locomotion() {
             const rightThumbstickState = rightController.gamepad['xr-standard-thumbstick']
             if (rightThumbstickState != null) {
                 // Get right thumbstick X-axis for rotation (left/right)
-                const rotationInput = rightThumbstickState.xAxis ?? 0
+                const rotationInput = -1 * (rightThumbstickState.xAxis ?? 0)
 
                 // Apply rotation if thumbstick is being used
                 if (Math.abs(rotationInput) >= 0.1) {
@@ -101,32 +124,32 @@ function Locomotion() {
                     // Calculate rotation amount
                     const rotationAmount = rotationInput * rotationSpeed * delta
 
-                    // Get current camera position (player head position)
-                    const cameraPosition = new Vector3()
-                    camera.getWorldPosition(cameraPosition)
+                    // Get current camera position in world space (actual head position)
+                    const cameraWorldPosition = new Vector3()
+                    camera.getWorldPosition(cameraWorldPosition)
 
-                    // Get current XROrigin position
-                    const originPosition = new Vector3()
-                    ref.current.getWorldPosition(originPosition)
+                    // Store the current camera world position as our pivot point
+                    const pivotPoint = cameraWorldPosition.clone()
 
-                    // Calculate the offset from origin to camera (head)
-                    const cameraOffset = cameraPosition.clone().sub(originPosition)
+                    // Get the current XROrigin world position
+                    const originWorldPosition = new Vector3()
+                    ref.current.getWorldPosition(originWorldPosition)
 
-                    // To rotate around the camera position, we need to:
-                    // 1. Translate the origin so camera is at the center
-                    // 2. Apply rotation
-                    // 3. Translate back
+                    // Calculate the vector from pivot (head) to origin
+                    const originToPivotVector = pivotPoint.clone().sub(originWorldPosition)
 
-                    // First, move origin so camera position becomes the pivot
-                    ref.current.position.add(cameraOffset)
+                    // Rotate this vector around Y-axis
+                    const rotatedVector = originToPivotVector.clone()
+                    rotatedVector.applyAxisAngle(new Vector3(0, 1, 0), rotationAmount)
 
-                    // Apply the rotation
+                    // Calculate the new origin position
+                    const newOriginPosition = pivotPoint.clone().sub(rotatedVector)
+
+                    // Update the XROrigin position
+                    ref.current.position.copy(newOriginPosition)
+
+                    // Apply the rotation to the XROrigin
                     ref.current.rotation.y += rotationAmount
-
-                    // Now rotate the offset vector and move origin back
-                    const rotatedOffset = cameraOffset.clone()
-                    rotatedOffset.applyAxisAngle(new Vector3(0, 1, 0), -rotationAmount)
-                    ref.current.position.sub(rotatedOffset)
                 }
             }
         }
@@ -135,12 +158,11 @@ function Locomotion() {
         <>
             <XROrigin ref={ref} />
             {/* Pivot point sphere that follows the player */}
-            <group ref={pivotSphereRef}>
-                <mesh>
-                    <sphereGeometry args={[0.05, 16, 16]} />
-                    <meshBasicMaterial color="blue" />
-                </mesh>
-            </group>
         </>
     )
 }
+
+
+
+
+
